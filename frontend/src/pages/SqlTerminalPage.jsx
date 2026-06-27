@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function SqlTerminalPage() {
-  const { token } = useAuth();
+  const { token, isTerminalUnlocked, setTerminalUnlocked } = useAuth();
   
   // Terminal Session State
   const [sessionHistory, setSessionHistory] = useState([
@@ -23,6 +23,10 @@ export default function SqlTerminalPage() {
   // Command History (Up/Down navigation)
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Authentication State
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isUnlocking, setIsUnlocking] = useState(false);
 
   const terminalEndRef = useRef(null);
 
@@ -45,6 +49,30 @@ export default function SqlTerminalPage() {
     ]);
     setRequiresConfirmation(false);
     setCurrentInput('');
+  };
+
+  const handleUnlock = async (e) => {
+    e.preventDefault();
+    if (!passwordInput.trim()) return;
+
+    setIsUnlocking(true);
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/terminal/unlock",
+        { password: passwordInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        setTerminalUnlocked(true);
+        toast.success("Terminal unlocked");
+        setPasswordInput('');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to unlock terminal");
+    } finally {
+      setIsUnlocking(false);
+    }
   };
 
   const executeQuery = async (queryToExecute, confirm = false) => {
@@ -75,8 +103,14 @@ export default function SqlTerminalPage() {
       if (data.success) {
         setRequiresConfirmation(false);
         const meta = data.metadata;
+        const timeStr = (meta.executionTimeMs / 1000).toFixed(2);
         
-        if (meta.commandType === 'SELECT' || meta.commandType === 'SHOW' || meta.commandType === 'DESCRIBE' || meta.commandType === 'EXPLAIN') {
+        if (meta.commandType === 'USE') {
+          appendToSession({ 
+            type: 'success', 
+            text: 'Database changed' 
+          });
+        } else if (meta.commandType === 'SELECT' || meta.commandType === 'SHOW' || meta.commandType === 'DESCRIBE' || meta.commandType === 'EXPLAIN') {
           if (data.data && data.data.length > 0) {
             appendToSession({ 
               type: 'data', 
@@ -86,13 +120,14 @@ export default function SqlTerminalPage() {
           } else {
             appendToSession({ 
               type: 'success', 
-              text: `Empty set (${(meta.executionTimeMs / 1000).toFixed(2)} sec)` 
+              text: `Empty set (${timeStr} sec)` 
             });
           }
         } else {
+          const rowStr = meta.affectedRows === 1 ? 'row' : 'rows';
           appendToSession({ 
             type: 'success', 
-            text: `Query OK, ${meta.affectedRows || 0} rows affected (${(meta.executionTimeMs / 1000).toFixed(2)} sec)` 
+            text: `Query OK, ${meta.affectedRows || 0} ${rowStr} affected (${timeStr} sec)` 
           });
         }
       }
@@ -231,24 +266,49 @@ export default function SqlTerminalPage() {
           </table>
         </div>
         <div className="text-zinc-500 mt-2">
-          {data.length} row(s) in set ({(time / 1000).toFixed(2)} sec)
+          {data.length} {data.length === 1 ? 'row' : 'rows'} in set ({(time / 1000).toFixed(2)} sec)
         </div>
       </div>
     );
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0d0d0f] rounded-xl border border-zinc-800 overflow-hidden shadow-2xl font-mono text-sm">
+    <div className="h-full flex flex-col bg-[#0d0d0f] overflow-hidden font-mono text-sm">
       {/* Terminal Header */}
       <div className="h-10 bg-zinc-900/80 border-b border-zinc-800 flex items-center px-4 shrink-0">
         <TerminalSquare className="w-4 h-4 text-zinc-400 mr-2" />
         <span className="text-zinc-400 font-semibold text-xs tracking-wider">SQL TERMINAL</span>
       </div>
 
-      {/* Scrollable Console Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 text-zinc-300 cursor-text" onClick={() => document.querySelector('.cm-content')?.focus()}>
-        
-        {/* Render History */}
+      {!isTerminalUnlocked ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
+          <h2 className="text-zinc-200 text-lg font-semibold mb-2">Terminal Locked</h2>
+          <p className="text-zinc-400 mb-6 text-center max-w-md">
+            For security reasons, please enter your account password to unlock the SQL terminal.
+          </p>
+          <form onSubmit={handleUnlock} className="flex gap-2 w-full max-w-xs">
+            <input 
+              type="password" 
+              value={passwordInput} 
+              onChange={(e) => setPasswordInput(e.target.value)} 
+              className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 transition-colors" 
+              placeholder="Password" 
+              autoFocus 
+            />
+            <button 
+              type="submit" 
+              disabled={isUnlocking} 
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded font-semibold transition-colors"
+            >
+              {isUnlocking ? '...' : 'Unlock'}
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 text-zinc-300 cursor-text" onClick={() => document.querySelector('.cm-content')?.focus()}>
+          
+          {/* Render History */}
         {sessionHistory.map((entry, idx) => {
           switch (entry.type) {
             case 'info':
@@ -304,7 +364,8 @@ export default function SqlTerminalPage() {
         
         {/* Invisible element to scroll to */}
         <div ref={terminalEndRef} />
-      </div>
+        </div>
+      )}
     </div>
   );
 }

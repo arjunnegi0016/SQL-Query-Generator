@@ -31,8 +31,8 @@ function App() {
           <Route path="generator" element={<SqlGeneratorPage />} />
           <Route path="terminal" element={<SqlTerminalPage />} />
           <Route path="history" element={<QueryHistoryPage />} />
-          <Route path="schemas" element={<div>Schemas (TODO)</div>} />
-          <Route path="analytics" element={<div>Analytics (TODO)</div>} />
+
+
           <Route path="settings" element={<SettingsPage />} />
           <Route path="saved-queries" element={<SavedQueriesPage />} />
         </Route>

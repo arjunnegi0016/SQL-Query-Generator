@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { Sparkles, Copy, Download, Play, AlertTriangle, ShieldCheck, CheckCircle2, Info, Bookmark } from 'lucide-react';
@@ -18,6 +19,11 @@ export default function SqlGeneratorPage() {
   const [riskLevel, setRiskLevel] = useState("");
   const [optimization, setOptimization] = useState("");
   const [alternativeQuery, setAlternativeQuery] = useState("");
+
+  // Save Modal State
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveTitle, setSaveTitle] = useState("");
+  const [isSavingQuery, setIsSavingQuery] = useState(false);
 
   const handleGenerate = async () => {
     if (!prompt) return;
@@ -65,6 +71,28 @@ export default function SqlGeneratorPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleOpenSaveModal = () => {
+    setSaveTitle(prompt.substring(0, 50));
+    setShowSaveModal(true);
+  };
+
+  const handleSaveQuery = async () => {
+    if (!saveTitle.trim()) return;
+    setIsSavingQuery(true);
+    try {
+      await axios.post("http://localhost:5000/api/saved-queries", {
+        title: saveTitle.trim(),
+        generatedSql: generatedQuery
+      });
+      toast.success("Query saved successfully!");
+      setShowSaveModal(false);
+    } catch (e) {
+      toast.error("Failed to save query");
+    } finally {
+      setIsSavingQuery(false);
     }
   };
 
@@ -124,20 +152,7 @@ export default function SqlGeneratorPage() {
                     </span>
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={async () => {
-                          try {
-                            const title = window.prompt("Enter a title for this saved query:", prompt.substring(0, 50));
-                            if (!title) return;
-                            await axios.post("http://localhost:5000/api/saved-queries", {
-                              title,
-                              generatedSql: generatedQuery
-                            });
-                            // toast.success("Query saved!");
-                            alert("Query saved successfully!");
-                          } catch (e) {
-                            alert("Failed to save query");
-                          }
-                        }}
+                        onClick={handleOpenSaveModal}
                         className="flex items-center text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800 px-2 py-1.5 rounded transition-colors"
                         title="Save Query"
                       >
@@ -278,6 +293,41 @@ export default function SqlGeneratorPage() {
               )}
             </TabsContent>
           </Tabs>
+        </div>
+      )}
+
+      {/* Custom Save Modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card border border-border w-full max-w-md rounded-xl shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-foreground mb-2 flex items-center">
+              <Bookmark className="w-5 h-5 mr-2 text-primary" /> Save Query
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">Give this query a recognizable name so you can find it later.</p>
+            <input 
+              type="text" 
+              value={saveTitle} 
+              onChange={e => setSaveTitle(e.target.value)}
+              className="w-full bg-background border border-border rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 mb-6 text-foreground shadow-sm"
+              placeholder="e.g., Top 5 employees by salary"
+              autoFocus
+            />
+            <div className="flex justify-end space-x-3">
+              <button 
+                onClick={() => setShowSaveModal(false)}
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveQuery}
+                disabled={!saveTitle.trim() || isSavingQuery}
+                className="px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-md transition-colors disabled:opacity-50 shadow-md shadow-primary/20"
+              >
+                {isSavingQuery ? 'Saving...' : 'Save Query'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

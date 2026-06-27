@@ -3,6 +3,7 @@ import { terminalController } from '../controllers/terminal.controller.js';
 
 const router = express.Router();
 
+router.post('/unlock', terminalController.unlock);
 router.post('/execute', terminalController.execute);
 
 export default router;

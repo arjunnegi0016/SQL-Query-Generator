@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, TerminalSquare, Terminal, History, Database, LineChart, Settings, Bell, Search, LogOut, Bookmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -7,17 +7,18 @@ import { useState } from 'react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Database, label: 'Schemas', path: '/schemas' },
+
   { icon: TerminalSquare, label: 'SQL Generator', path: '/generator' },
   { icon: Terminal, label: 'SQL Terminal', path: '/terminal' },
   { icon: History, label: 'Query History', path: '/history' },
   { icon: Bookmark, label: 'Saved Queries', path: '/saved-queries' },
-  { icon: LineChart, label: 'Analytics', path: '/analytics' },
+
 ];
 
 export default function MainLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -110,8 +111,8 @@ export default function MainLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-7xl mx-auto">
+        <main className={`flex-1 overflow-y-auto ${location.pathname === '/terminal' ? 'p-0' : 'p-8'}`}>
+          <div className={`w-full h-full ${location.pathname === '/terminal' ? '' : 'max-w-7xl mx-auto'}`}>
             <Outlet />
           </div>
         </main>

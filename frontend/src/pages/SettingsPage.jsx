@@ -68,9 +68,6 @@ export default function SettingsPage() {
                 onChange={(e) => setSettings({...settings, preferredDatabase: e.target.value})}
               >
                 <option value="MySQL">MySQL</option>
-                <option value="PostgreSQL">PostgreSQL</option>
-                <option value="MongoDB">MongoDB</option>
-                <option value="SQL Server">SQL Server</option>
               </select>
             </div>
 
@@ -79,7 +76,15 @@ export default function SettingsPage() {
               <select 
                 className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 value={settings.theme}
-                onChange={(e) => setSettings({...settings, theme: e.target.value})}
+                onChange={(e) => {
+                  const newTheme = e.target.value;
+                  setSettings({...settings, theme: newTheme});
+                  if (newTheme === 'dark' || (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                }}
               >
                 <option value="dark">Dark</option>
                 <option value="light">Light</option>

@@ -1,8 +1,43 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 export const terminalController = {
+  async unlock(req, res) {
+    try {
+      const { password } = req.body;
+      const userId = req.user?.userId;
+
+      if (!password) {
+        return res.status(400).json({ success: false, error: 'Password is required' });
+      }
+
+      if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      if (!user.password) {
+        return res.status(400).json({ success: false, error: 'Account uses OAuth, password authentication not supported here.' });
+      }
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ success: false, error: 'Invalid password' });
+      }
+
+      return res.json({ success: true, message: 'Terminal unlocked successfully' });
+    } catch (error) {
+      console.error('Terminal Unlock Error:', error);
+      res.status(500).json({ success: false, error: 'Server error' });
+    }
+  },
+
   async execute(req, res) {
     try {
       const { query, confirmDangerous } = req.body;
