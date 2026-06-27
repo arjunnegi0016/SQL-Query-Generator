@@ -1,0 +1,32 @@
+{
+  "name": "sql-query-generator-backend",
+  "version": "1.0.0",
+  "description": "Backend for AI-powered SQL Query Generator",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "@prisma/client": "^5.10.2",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "google-auth-library": "^10.7.0",
+    "groq-sdk": "^1.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.7.2",
+    "mysql2": "^3.9.2",
+    "nodemailer": "^9.0.1",
+    "openai": "^6.44.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "prisma": "^5.10.2"
+  }
+}

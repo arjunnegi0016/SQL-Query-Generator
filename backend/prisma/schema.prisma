@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String?  // Optional since OAuth users might not have a password
+  name      String?
+  picture   String?
+  googleId  String?  @unique
+  isVerified Boolean  @default(false)
+  createdAt DateTime @default(now())
+  queries   QueryHistory[]
+  schemas   DatabaseSchema[]
+  tokens        VerificationToken[]
+  savedQueries  SavedQuery[]
+  chatHistory   ChatHistory[]
+  settings      UserSettings?
+}
+
+model VerificationToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  code      String   // Hashed OTP code
+  type      String   // e.g., 'SIGNUP', 'LOGIN', 'RESET'
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user      User?    @relation(fields: [email], references: [email], onDelete: Cascade)
+  
+  @@unique([email, type]) // Only one active token per type per email
+}
+
+model QueryHistory {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt        String   @db.Text
+  generatedSql  String   @db.Text
+  explanation   String   @db.Text
+  operationType String   @db.VarChar(50)
+  estimatedRows String?  @db.VarChar(50)
+  riskLevel     String?  @db.VarChar(20)
+  optimization  String?  @db.Text
+  createdAt     DateTime @default(now())
+}
+
+model SavedQuery {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String   @db.VarChar(255)
+  generatedSql  String   @db.Text
+  createdAt     DateTime @default(now())
+}
+
+model ChatHistory {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userMessage       String   @db.Text
+  assistantResponse String   @db.Text
+  createdAt         DateTime @default(now())
+}
+
+model UserSettings {
+  id                Int      @id @default(autoincrement())
+  userId            Int      @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredDatabase String   @default("MySQL") @db.VarChar(50)
+  theme             String   @default("dark") @db.VarChar(20)
+  createdAt         DateTime @default(now())
+}
+
+model DatabaseSchema {
+  id        Int           @id @default(autoincrement())
+  userId    Int?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String        @db.VarChar(255)
+  tables    SchemaTable[]
+  createdAt DateTime      @default(now())
+}
+
+model SchemaTable {
+  id       Int            @id @default(autoincrement())
+  schemaId Int
+  schema   DatabaseSchema @relation(fields: [schemaId], references: [id], onDelete: Cascade)
+  name     String         @db.VarChar(255)
+  columns  SchemaColumn[]
+}
+
+model SchemaColumn {
+  id      Int         @id @default(autoincrement())
+  tableId Int
+  table   SchemaTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  name    String      @db.VarChar(255)
+  type    String      @db.VarChar(100)
+}
