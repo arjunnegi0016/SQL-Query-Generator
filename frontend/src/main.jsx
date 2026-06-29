@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import axios from 'axios'
+
+axios.defaults.baseURL = 'http://localhost:5000';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'your_google_client_id_here';
 

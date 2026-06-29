@@ -13,6 +13,7 @@ import terminalRoutes from './api/v1/routes/terminal.routes.js';
 import savedQueriesRoutes from './api/v1/routes/savedQueries.routes.js';
 import chatRoutes from './api/v1/routes/chat.routes.js';
 import settingsRoutes from './api/v1/routes/settings.routes.js';
+import userRoutes from './api/v1/routes/user.routes.js';
 import { requireAuth } from './api/v1/middlewares/auth.middleware.js';
 
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/terminal', requireAuth, terminalRoutes);
 app.use('/api/saved-queries', requireAuth, savedQueriesRoutes);
 app.use('/api/chat-history', requireAuth, chatRoutes);
 app.use('/api/settings', requireAuth, settingsRoutes);
+app.use('/api/user', requireAuth, userRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

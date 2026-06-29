@@ -22,13 +22,19 @@ export const terminalController = {
         return res.status(404).json({ success: false, error: 'User not found' });
       }
 
-      if (!user.password) {
-        return res.status(400).json({ success: false, error: 'Account uses OAuth, password authentication not supported here.' });
+      if (!user.terminalPassword && !user.password) {
+        return res.status(400).json({ success: false, error: 'No password set for this account.' });
       }
 
-      const isValid = await bcrypt.compare(password, user.password);
+      let isValid = false;
+      if (user.terminalPassword) {
+        isValid = password === user.terminalPassword;
+      } else {
+        isValid = await bcrypt.compare(password, user.password);
+      }
+
       if (!isValid) {
-        return res.status(401).json({ success: false, error: 'Invalid password' });
+        return res.status(401).json({ success: false, error: 'Invalid terminal password' });
       }
 
       return res.json({ success: true, message: 'Terminal unlocked successfully' });

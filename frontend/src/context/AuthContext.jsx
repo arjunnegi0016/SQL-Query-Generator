@@ -24,9 +24,10 @@ export const AuthProvider = ({ children }) => {
         .then(res => {
           if (res.data.success && res.data.data.theme) {
             const theme = res.data.data.theme;
-            if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            if (theme === 'dark') {
               document.documentElement.classList.add('dark');
             } else {
+              // 'light' or 'system' defaults to white as requested
               document.documentElement.classList.remove('dark');
             }
           }

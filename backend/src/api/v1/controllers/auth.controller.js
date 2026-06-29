@@ -22,6 +22,11 @@ export const googleLogin = async (req, res) => {
     const payload = ticket.getPayload();
     const { email, name, picture, sub: googleId } = payload;
 
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const isNewUser = !existingUser;
+    
+    const initialTerminalPassword = isNewUser ? generateTerminalPassword() : undefined;
+
     // Upsert User in Database
     const user = await prisma.user.upsert({
       where: { email },
@@ -35,8 +40,14 @@ export const googleLogin = async (req, res) => {
         name,
         picture,
         googleId,
+        isVerified: true,
+        terminalPassword: initialTerminalPassword,
       },
     });
+
+    if (isNewUser && initialTerminalPassword) {
+      await sendEmail(email, null, 'WELCOME_TERMINAL', { terminalPassword: initialTerminalPassword });
+    }
 
     // Generate our own JWT Session Token
     const token = jwt.sign(
@@ -59,8 +70,9 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer'; // Used for mocking email in dev
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+const generateTerminalPassword = () => crypto.randomBytes(4).toString('hex');
 
-const sendEmail = async (email, code, type) => {
+const sendEmail = async (email, code, type, extraData = {}) => {
   // If SMTP is configured, send a real email
   if (process.env.SMTP_HOST && process.env.SMTP_USER) {
     try {
@@ -77,15 +89,28 @@ const sendEmail = async (email, code, type) => {
       const subjectMap = {
         'SIGNUP': 'Your QueryGen AI Verification Code',
         'LOGIN 2FA': 'Your QueryGen AI Login Code',
-        'PASSWORD RESET': 'Your QueryGen AI Password Reset Code'
+        'PASSWORD RESET': 'Your QueryGen AI Password Reset Code',
+        'WELCOME_TERMINAL': 'Welcome to QueryGen AI - Your SQL Terminal Credentials'
       };
 
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || '"QueryGen AI" <noreply@querygen.ai>',
-        to: email,
-        subject: subjectMap[type] || 'Your Verification Code',
-        text: `Your ${type.toLowerCase()} verification code is: ${code}. This code will expire in 10 minutes.`,
-        html: `
+      let htmlContent = '';
+      let textContent = '';
+      if (type === 'WELCOME_TERMINAL') {
+        textContent = `Welcome to QueryGen AI! Your SQL Terminal password is: ${extraData.terminalPassword}. You can change it once.`;
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #1e293b; margin-top: 0;">Welcome to QueryGen AI!</h2>
+            <p style="color: #475569; font-size: 16px;">Thank you for registering on our platform.</p>
+            <p style="color: #475569; font-size: 16px;">Here is your randomly generated 8-character SQL Terminal password:</p>
+            <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; text-align: center; margin: 24px 0;">
+              <span style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #0f172a;">${extraData.terminalPassword}</span>
+            </div>
+            <p style="color: #64748b; font-size: 14px;">You can change this password exactly once in the SQL Terminal.</p>
+          </div>
+        `;
+      } else {
+        textContent = `Your ${type.toLowerCase()} verification code is: ${code}. This code will expire in 10 minutes.`;
+        htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #1e293b; margin-top: 0;">QueryGen AI</h2>
             <p style="color: #475569; font-size: 16px;">You requested a code for <strong>${type.toLowerCase()}</strong>.</p>
@@ -94,7 +119,15 @@ const sendEmail = async (email, code, type) => {
             </div>
             <p style="color: #64748b; font-size: 14px;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
           </div>
-        `
+        `;
+      }
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || '"QueryGen AI" <noreply@querygen.ai>',
+        to: email,
+        subject: subjectMap[type] || 'Your Verification Code',
+        text: textContent,
+        html: htmlContent
       });
       console.log(`[SMTP] Real email sent to ${email} for ${type}`);
       return;
@@ -109,7 +142,11 @@ const sendEmail = async (email, code, type) => {
   console.log(`[MOCK EMAIL SENT]`);
   console.log(`To: ${email}`);
   console.log(`Type: ${type}`);
-  console.log(`OTP CODE: ${code}`);
+  if (type === 'WELCOME_TERMINAL') {
+    console.log(`TERMINAL PASSWORD: ${extraData.terminalPassword}`);
+  } else {
+    console.log(`OTP CODE: ${code}`);
+  }
   console.log(`========================================\n`);
 };
 
@@ -187,10 +224,23 @@ export const verifySignup = async (req, res) => {
     const isValid = await bcrypt.compare(code, tokenRecord.code);
     if (!isValid) return res.status(400).json({ error: 'Invalid verification code' });
 
+    // Check if they were already verified, though this endpoint shouldn't really be called if they are,
+    // but just to be safe so we don't regenerate password.
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const needsPassword = !existingUser.isVerified && !existingUser.terminalPassword;
+    const initialTerminalPassword = needsPassword ? generateTerminalPassword() : undefined;
+
     const user = await prisma.user.update({
       where: { email },
-      data: { isVerified: true }
+      data: { 
+        isVerified: true,
+        ...(needsPassword && { terminalPassword: initialTerminalPassword })
+      }
     });
+
+    if (needsPassword && initialTerminalPassword) {
+       await sendEmail(email, null, 'WELCOME_TERMINAL', { terminalPassword: initialTerminalPassword });
+    }
 
     await prisma.verificationToken.delete({ where: { id: tokenRecord.id } });
 
